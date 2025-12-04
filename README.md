@@ -1,86 +1,63 @@
-# Assignment 1 – Data Warehousing (Taxi TLC – Abbas Syed)
+# NYC TLC Yellow Taxi – Cloud Data Warehouse (Assignments 1 & 2)
 
-## 1. Data Sourcing (2 pts)
+Author: Abbas Syed  
+Course: CIS 9440 – Data Warehousing for Analytics
 
-### Data Source
+## 1. Project Overview
 
-- **TLC Yellow Taxi Trips (Jan 2023, Parquet)**
-  - URL: https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2023-01.parquet
+This project builds a small end-to-end data warehouse for the NYC TLC Yellow Taxi trips (January 2023).  
+Assignment 1 focused on sourcing the data and loading it into cloud storage.  
+Assignment 2 extends the project by:
 
-### Data Dictionary
+- Transforming the raw TLC file into a clean analytical schema in Amazon Redshift.
+- Modeling a star schema with one fact table and several dimensions.
+- Serving the data through Tableau (online dashboard) and a Python script that exports a CSV summary for analysts.
 
-- Google Sheets data dictionary for this dataset:
-  - https://docs.google.com/spreadsheets/d/11K22GrLOxfj3pEcFKnM_dzLQC3pekfMgwXTJjKfXmQo/edit?usp=sharing
+## 2. Cloud Stack
 
-### Scripts that gather the data
+- **Storage:** Amazon S3  
+  - Bucket: `taxi-tlc-bucket-abbas`  
+  - Objects: `raw/yellow_tripdata_2023-01.parquet` and `raw/yellow_tripdata_2023-01.csv`
 
-- `scripts/download_yellow_taxi_to_s3.py`  
-  - Downloads the January 2023 TLC Yellow Taxi Parquet file from the TLC CloudFront URL.
-  - Uploads the file into my AWS S3 bucket in the **raw** folder:  
-    `s3://taxi-tlc-bucket-abbas/raw/yellow_tripdata_2023-01.parquet`
+- **Data Warehouse:** Amazon Redshift Serverless  
+  - Workgroup: `default-workgroup`  
+  - Database: `dev`  
+  - Schema: `taxi_dw`  
+  - IAM Role: `RedshiftS3AccessRole` (S3 read + Redshift commands)
 
-### Git Repository
+- **Serving:**
+  - Tableau (live connection to Redshift) – interactive dashboard on Tableau Public.
+  - Python script that exports a daily taxi summary to CSV.
 
-This repository (`dw_assignment1_sql`) is used for Assignment 1.  
-All scripts and documentation are version-controlled with Git and pushed to GitHub.
+## 3. Repository Structure
 
-## 2. Storage (3 pts)
-
-**Storage of choice**
-
-- **AWS S3 bucket:** `taxi-tlc-bucket-abbas`
-  - `raw/` layer: `s3://taxi-tlc-bucket-abbas/raw/yellow_tripdata_2023-01.parquet`
-  - `clean/` and `warehouse/` folders reserved for later ETL steps.
-
-- **AWS RDS PostgreSQL instance:** `taxi` (us-east-2)
-  - Staging table: `public.raw_yellow_tripdata`
-
-**Scripts updated to store data**
-
-- `scripts/download_yellow_taxi_to_s3.py`
-  - Downloads January 2023 TLC Yellow Taxi Parquet file from TLC CloudFront.
-  - Uploads it to S3 under the `raw/` prefix.
-
-- `scripts/load_taxi_to_postgres.py`
-  - Reads the same TLC Parquet file.
-  - Creates the staging table `public.raw_yellow_tripdata` if needed.
-  - Bulk loads ~3.06M rows into the staging table using COPY from CSV.
-
-All scripts are version-controlled in this GitHub repository.
-
----
-
-## 3. Modeling (5 pts)
-
-**Data warehouse model**
-
-I designed a star schema in schema `taxi_dw` with:
-
-- **Fact table:**
-  - `taxi_dw.fact_taxi_trips`
-  - Surrogate primary key: `trip_key (BIGSERIAL)`
-  - Measures: `passenger_count`, `trip_distance`, `fare_amount`, `tip_amount`,
-    `tolls_amount`, `improvement_surcharge`, `total_amount`, `congestion_surcharge`
-
-- **Dimension tables (each with surrogate key):**
-  - `taxi_dw.dim_vendor(vendor_key, vendorid, vendor_name)`
-  - `taxi_dw.dim_rate_code(ratecode_key, ratecodeid, ratecode_desc)`
-  - `taxi_dw.dim_payment_type(payment_type_key, payment_type, payment_desc)`
-  - `taxi_dw.dim_datetime(datetime_key, pickup_datetime, pickup_date, pickup_hour, pickup_dow)`
-
-`fact_taxi_trips` contains foreign keys to all four dimensions.
-
-**Scripts that create the Data Warehouse**
-
-- `sql/create_taxi_dw.sql`
-  - Creates the schema `taxi_dw`.
-  - Creates all four dimension tables and the fact table with surrogate keys.
-  - Populates the dimensions from `public.raw_yellow_tripdata`.
-  - Populates the fact table by joining `public.raw_yellow_tripdata` to the
-    dimension tables.
-
-**Scripts from previous steps**
-
-- `scripts/load_taxi_to_postgres.py` serves as the ETL from S3/TLC into the
-  staging table used by the warehouse creation script.
+```text
+dw_assignment1_sql/
+├── raw_data/
+│   ├── yellow_tripdata_2023-01.parquet
+│   └── yellow_tripdata_2023-01.csv
+├── scripts/
+│   ├── download_yellow_taxi_to_s3.py
+│   ├── convert_parquet_to_csv.py
+│   └── load_taxi_to_postgres.py        # Assignment 1 (local loading)
+├── sql/
+│   ├── 01_create_schema_and_staging.sql
+│   ├── 02_create_and_load_clean_table.sql
+│   ├── 03_create_dimensions.sql
+│   ├── 04_load_dimensions.sql
+│   ├── 05_create_fact.sql
+│   ├── 06_load_fact.sql
+│   ├── 07_sanity_checks.sql
+│   └── assignment2_redshift_full_build.sql   # One-shot full rebuild
+├── api/
+│   └── export_taxi_summary.py          # Python "API" → CSV export
+├── output/
+│   └── taxi_daily_summary_2023_01.csv  # Generated summary file
+├── docs/
+│   ├── ASSIGNMENT 1 – DATA WAREHOUSING REPORT.pdf
+│   ├── Assignment 1 – Taxi TLC Data Warehouse (Abbas Syed).pdf
+│   ├── Assignment 2 Data Dictionary_ Data Mapping.pdf
+│   └── Assignment 2 ERD.pdf
+├── Assignment 2 – Taxi TLC Data Warehouse (Abbas Syed).twbx   # Tableau workbook
+└── README.md
 
